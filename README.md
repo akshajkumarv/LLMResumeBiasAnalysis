@@ -38,7 +38,7 @@ To create the basic dataset we used in our research study, run the following com
 
 `python create_dataset.py`
 
-This will create a dataset with a total of 1334 resumes for the three categories Information-Technology, Construction, and Teacher. The dataset will be saved in the `data` directory under the name `selected_cats_resumes.csv`.
+This will create a dataset with a total of 1336 resumes for the three categories Information-Technology, Construction, and Teacher. The dataset will be saved in the `data` directory under the name `selected_cats_resumes.csv`.
 
 If you want to create summaries for the resumes in the dataset, run the following command in your terminal:
 
