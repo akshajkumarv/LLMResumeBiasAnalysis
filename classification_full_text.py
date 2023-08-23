@@ -7,10 +7,14 @@ import numpy as np
 from tenacity import (retry, stop_after_attempt, wait_random_exponential)
 from model import ModelLoader
 import openai
-import google.generativeai as palm
+# import google.generativeai as palm
 import anthropic
 import torch
 import warnings
+from vertexai.preview.language_models import ChatModel
+import vertexai
+from google.cloud import aiplatform
+from google.oauth2 import service_account
 
 # change this to the path of the dataset
 DATA_PATH = args.dataset + '/selected_cats_resumes.csv'
@@ -86,26 +90,40 @@ def call_gpt(message):
     # return response
     return completion['choices'][0]['message']['content']
 
-@retry(stop=stop_after_attempt(10), wait=wait_random_exponential(min=1, max=30))
+@retry(stop=stop_after_attempt(10), wait=wait_random_exponential(min=1, max=20))
 def call_bard(message):
+    # ========== old api set up ==========
     # set api key
-    palm.configure(api_key=model_loader.api_key)
+    # palm.configure(api_key=model_loader.api_key)
 
-    defaults = {
-        'model': 'models/chat-bison-001',
-        'temperature': args.temperature,
+    # defaults = {
+    #     'model': 'models/chat-bison-001',
+    #     'temperature': args.temperature,
+    # }
+
+    # # send request to palm
+    # response = palm.chat(
+    #     **defaults,
+    #     context='',
+    #     examples=[],
+    #     messages=[message]
+    # )
+    # 
+    # return response
+
+    # ========== new api set up ==========
+    chat_model = ChatModel.from_pretrained("chat-bison@001")
+    parameters = {
+        "max_output_tokens": 100,
+        "temperature": args.temperature,
+        # "top_p": 0.8,
+        # "top_k": 40
     }
-
-    # send request to palm
-    response = palm.chat(
-        **defaults,
-        context='',
-        examples=[],
-        messages=[message]
-    )
+    chat = chat_model.start_chat()
+    response = chat.send_message(message, **parameters)
 
     # return response
-    return response.last
+    return response.text
     
 @retry(stop=stop_after_attempt(10), wait=wait_random_exponential(min=1, max=30))
 def call_claude(message):
@@ -131,11 +149,21 @@ def call_llama(message):
     # decode output
     output_ids = output_ids.to('cpu')
     output = model_loader.tokenizer.decode(output_ids.squeeze(), skip_special_tokens=True)
-    return output
+    return output.split('[/INST]')[1].strip()
 
 if __name__ == '__main__':
     # Set up model
     model_loader = ModelLoader(args)
+
+    # if model is bard, set up api for bard, using vertex ai
+    if args.model_name == 'bard':
+        credentials = service_account.Credentials.from_service_account_file(model_loader.api_key)
+        aiplatform.init(
+            project='llm-bias-396820',
+            location='us-central1',
+            credentials=credentials
+        )
+        vertexai.init(project="llm-bias-396820", location="us-central1")
 
     # Set up output directory
     if not os.path.exists(f"./results/{args.model_name}/full_text"):
@@ -163,11 +191,13 @@ if __name__ == '__main__':
         df = df.reset_index(drop=True)
         df['Category'] = ['INFORMATION-TECHNOLOGY']*1336 + ['TEACHER']*1336 + ['CONSTRUCTION']*1336
         df['Ground_truth'] = df.apply(lambda row: 1 if original_df.loc[(original_df['Category'] == row['Category']) & (original_df['Resume_str'] == row['Resume_str'])].shape[0] > 0 else 0, axis=1)
-        df['Prediction'] = ''  
-    else:
-        print("Loading Dataset")
-        df = pd.read_csv(f"./results/{args.model_name}/full_text/{output_file_name}")
+        df['Prediction'] = ''
+        df.to_csv(f"./results/{args.model_name}/full_text/{output_file_name}")
+
+    print("Loading Dataset")
+    df = pd.read_csv(f"./results/{args.model_name}/full_text/{output_file_name}")
     
+    print("Starting to generate")
     continueing = False
     for i, row in df.iterrows():
          # skip male resumes for pregnancy

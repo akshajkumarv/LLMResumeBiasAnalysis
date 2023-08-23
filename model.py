@@ -1,4 +1,3 @@
-from transformers import LlamaForCausalLM, LlamaTokenizer
 import os
 # os.environ["CUDA_VISIBLE_DEVICES"] = "1,2,3,4,5,6"
 
@@ -17,9 +16,13 @@ class ModelLoader:
         elif self.model_name == 'bard':
             print("Loading Bard Model")
             # read api key from given file path
-            with open(f"api_keys/{self.model_name}/{args.api_key_file}", 'r') as file:
-                self.api_key = file.read().replace('\n', '')
+            # with open(f"api_keys/{self.model_name}/{args.api_key_file}", 'r') as file:
+                # self.api_key = file.read().replace('\n', '')
             
+            # set up for paid api differs a little
+            self.api_key = f"api_keys/{self.model_name}/{args.api_key_file}"
+
+
         elif self.model_name == 'claude':
             print("Loading Claude Model")
             with open(f"api_keys/{self.model_name}/{args.api_key_file}", 'r') as file:
@@ -27,6 +30,7 @@ class ModelLoader:
         
         # add llama
         elif self.model_name == 'llama':
+            from transformers import LlamaForCausalLM, LlamaTokenizer
             print(f"Loading Llama Model {args.llama_model}")
             self.model_path = f'/data/llama-2-hf/{args.llama_model}'
             self.model = LlamaForCausalLM.from_pretrained(self.model_path, device_map='auto')
