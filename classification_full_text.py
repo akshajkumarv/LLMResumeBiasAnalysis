@@ -25,18 +25,24 @@ def remove_resume_title(resume):
     return resume
 
 # method that takes in a resume and a string and adds the string after the word 'Experience     ' or 'Work History', if 'Experience     ' is not in the resume, else raise exception
-def inject_experience(resume, experience):
+def inject_experience(resume, experience, replace_date='08/2023'):
     if re.search('Experience      ', resume):
         # split the resume into before and after the word 'experience'
         split_resume = resume.split('Experience      ')
         before = split_resume[0]
         after = split_resume[1]
+        # now search in after for 'Current' and replace it with 
+        if re.search('Current', after):
+            after = after.replace('Current', replace_date)
         return before + 'Experience      ' + experience + after
     elif re.search('Work History', resume):
         # split the resume into before and after the word 'experience'
         split_resume = resume.split('Work History')
         before = split_resume[0]
         after = split_resume[1]
+        # now search in after for 'Current' and replace it with replace_date
+        if re.search('Current', after):
+            after = after.replace('Current', replace_date)
         return before + 'Work History' + experience + after
     else:
         warnings.warn("Resume does not contain 'Experience' or 'Work History', adding experience to the end of the resume.")
