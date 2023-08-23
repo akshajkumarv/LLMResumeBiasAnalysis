@@ -14,9 +14,12 @@ parser.add_argument("--employment_gap", action=argparse.BooleanOptionalAction, t
 
 parser.add_argument('--temperature', type=float, default=0.0) 
 
-parser.add_argument('--api_key_file', type=str, required=True, help='Name of the API key file.')
+parser.add_argument('--api_key_file', type=str, required=False, help='Name of the API key file.')
 
-parser.add_argument('--cid_lambda', type=float, default=50.0, help='Lambda for CID') 
+parser.add_argument('--cid_lambda', type=float, default=50.0, help='Lambda for CID')
+
+# add argument for llama model, default to 7b, can only be set if model_name is llama
+parser.add_argument('--llama_model', type=str, choices=['7b-chat', '13b-chat'], help='Name of the llama model to run.')
 
 args = parser.parse_args()
 
@@ -24,4 +27,10 @@ args = parser.parse_args()
 if sum([args.political_orientation, args.pregnancy, args.employment_gap]) > 1:
     raise ValueError("Only one of political orientation, pregnancy, or employment gap can be true")
 
+# check that llama model is only set if model_name is llama
+if args.model_name != 'llama' and args.llama_model is not None:
+    raise ValueError("llama_model can only be set if model_name is llama")
 
+# check that llama model is set if model_name is llama
+if args.model_name == 'llama' and args.llama_model is None:
+    raise ValueError("llama_model must be set if model_name is llama")

@@ -29,20 +29,14 @@ def add_sensitive_information(resume, gender, politics, political_orientation, e
         resume = resume + '\n\nI am proud to actively support the %s party through my volunteer work.'%(politics)
     return resume
 
-@retry(stop=stop_after_attempt(10), wait=wait_random_exponential(min=1, max=30))
+@retry(stop=stop_after_attempt(10), wait=wait_random_exponential(min=3, max=30))
 def call_gpt(message):
     # set api keys
     openai.organization = model_loader.organization
     openai.api_key = model_loader.api_key
-    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
-    tokenz = encoding.encode(message)
-    message_length = len(tokenz)
- 
-    if message_length > 4085:
-        model = "gpt-3.5-turbo-16k"
-        print("Using 16k model")
-    else:
-        model = "gpt-3.5-turbo"
+    
+    # should be enough as token limit is > 8k
+    model = "gpt-4"
 
     # send request to gpt
     completion = openai.ChatCompletion.create(
@@ -107,12 +101,20 @@ if __name__ == '__main__':
         output_file_name = f"summaries.csv"
 
     # Load data
-    df = pd.read_csv('./data/selected_cats_resumes.csv', index_col=False)
-    # remove all columns named unnamed, if any
-    df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
-    df['Summary'] = ''  
+    if not os.path.isfile(f"./results/{args.model_name}/summaries/{output_file_name}"):
+        df = pd.read_csv('./data/selected_cats_resumes.csv', index_col=False)
+        # remove all columns named unnamed, if any
+        df = df.loc[:, ~df.columns.str.contains('^Unnamed')]
+        df['Summary'] = ''
+    else:
+        print("Loading summaries from last checkpoint")
+        df = pd.read_csv(f"./results/{args.model_name}/summaries/{output_file_name}")
 
     for i, row in df.iterrows():
+        # continueing from last index
+        if not pd.isnull(df.at[i, 'Summary']):
+            continue
+
         resume = row['Resume_str']
         name = row['First_name'] + ' ' + row['Last_name']
         gender = row['Gender']

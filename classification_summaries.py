@@ -18,15 +18,9 @@ def call_gpt(message):
     # set api keys
     openai.organization = model_loader.organization
     openai.api_key = model_loader.api_key
-    encoding = tiktoken.encoding_for_model("gpt-3.5-turbo")
-    tokenz = encoding.encode(message)
-    message_length = len(tokenz)
- 
-    if message_length > 4085:
-        model = "gpt-3.5-turbo-16k"
-        print("Using 16k model")
-    else:
-        model = "gpt-3.5-turbo"
+    
+    # should be enough as token limit is > 8k
+    model = "gpt-4"
 
     # send request to chatgpt
     completion = openai.ChatCompletion.create(
@@ -126,6 +120,10 @@ if __name__ == '__main__':
         df = pd.read_csv(f"./results/{args.model_name}/summaries/classification/{output_file_name}")
     
     for i, row in df.iterrows():
+        # continueing from last index
+        if not pd.isnull(df.at[i, 'Prediction']):
+            continue
+
         summary = row['Summary']
         job_category = row['Category']
 
