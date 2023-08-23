@@ -6,8 +6,12 @@ from itertools import product
 from tenacity import (retry, stop_after_attempt, wait_random_exponential)
 from model import ModelLoader
 import openai
-import google.generativeai as palm
+# import google.generativeai as palm
 import anthropic
+from vertexai.preview.language_models import ChatModel
+import vertexai
+from google.cloud import aiplatform
+from google.oauth2 import service_account
 
 
 def generate_prompt(instruction, input_ctxt):
@@ -34,26 +38,40 @@ def call_gpt(message):
     # return response
     return completion['choices'][0]['message']['content']
 
-@retry(stop=stop_after_attempt(10), wait=wait_random_exponential(min=1, max=30))
+@retry(stop=stop_after_attempt(10), wait=wait_random_exponential(min=1, max=20))
 def call_bard(message):
+    # ========== old api set up ==========
     # set api key
-    palm.configure(api_key=model_loader.api_key)
+    # palm.configure(api_key=model_loader.api_key)
 
-    defaults = {
-        'model': 'models/chat-bison-001',
-        'temperature': args.temperature,
+    # defaults = {
+    #     'model': 'models/chat-bison-001',
+    #     'temperature': args.temperature,
+    # }
+
+    # # send request to palm
+    # response = palm.chat(
+    #     **defaults,
+    #     context='',
+    #     examples=[],
+    #     messages=[message]
+    # )
+    # 
+    # return response
+
+    # ========== new api set up ==========
+    chat_model = ChatModel.from_pretrained("chat-bison@001")
+    parameters = {
+        "max_output_tokens": 100,
+        "temperature": args.temperature,
+        # "top_p": 0.8,
+        # "top_k": 40
     }
-
-    # send request to palm
-    response = palm.chat(
-        **defaults,
-        context='',
-        examples=[],
-        messages=[message]
-    )
+    chat = chat_model.start_chat()
+    response = chat.send_message(message, **parameters)
 
     # return response
-    return response.last
+    return response.text
     
 @retry(stop=stop_after_attempt(10), wait=wait_random_exponential(min=1, max=30))
 def call_claude(message):
@@ -69,6 +87,16 @@ def call_claude(message):
 if __name__ == '__main__':
     # Set up model
     model_loader = ModelLoader(args)
+
+    # if model is bard, set up api for bard, using vertex ai
+    if args.model_name == 'bard':
+        credentials = service_account.Credentials.from_service_account_file(model_loader.api_key)
+        aiplatform.init(
+            project='llm-bias-396820',
+            location='us-central1',
+            credentials=credentials
+        )
+        vertexai.init(project="llm-bias-396820", location="us-central1")
 
     # Set up output directory
     if not os.path.exists(f"./results/{args.model_name}/summaries/classification"):
